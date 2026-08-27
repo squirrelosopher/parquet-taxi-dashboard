@@ -1,5 +1,5 @@
 import { Anchor, Badge, Group, Text, ThemeIcon } from '@mantine/core';
-import { Car } from 'lucide-react';
+import { CarTaxiFront } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const GITHUB_URL = 'https://github.com/squirrelosopher/parquet-taxi-dashboard/';
@@ -33,7 +33,7 @@ export function Brand() {
     return (
         <Group gap="xs" wrap="nowrap">
             <ThemeIcon size={32} radius="md" variant="filled" style={{ backgroundColor: 'var(--brand)', color: 'var(--paper)' }}>
-                <Car size={18} strokeWidth={2.2} />
+                <CarTaxiFront size={18} strokeWidth={2.2} />
             </ThemeIcon>
             <div>
                 <Text fw={700} fz="sm" lh={1.1}>NYC Yellow Taxi</Text>
