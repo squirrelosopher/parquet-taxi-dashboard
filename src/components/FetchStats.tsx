@@ -5,7 +5,7 @@ import type { ViewResult } from '../lib/cube';
 
 export function FetchStats({ view }: { view: ViewResult | null }) {
     return (
-        <Group gap={16} wrap="wrap">
+        <Group gap={16} wrap="wrap" className="fetch-stats">
             <MiniStat label="Sections" value={fmtSections(view?.sections ?? [])} />
             <MiniStat label="Fetched" value={`${((view?.bytes ?? 0) / 1024).toFixed(0)} KB`} />
             <MiniStat label="Row groups" value={String(view?.groupsRead ?? 0)} />

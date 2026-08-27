@@ -26,7 +26,7 @@ export function StatCard({ label, value, sub, icon, color = 'gray' }: StatCardPr
                         </Text>
                     )}
                 </div>
-                <ThemeIcon variant="light" color={color} size={30} radius="md">
+                <ThemeIcon variant="light" color={color} size={30} radius="md" visibleFrom="sm">
                     {icon}
                 </ThemeIcon>
             </Group>

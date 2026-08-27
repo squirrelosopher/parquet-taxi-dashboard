@@ -71,14 +71,15 @@ export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; chil
 }
 
 // One width for every stat, so the columns keep an even pitch and a changing
-// value never reflows the row.
-export function MiniStat({ label, value, w = 94 }: { label: string; value: string; w?: number }) {
+// value never reflows the row. On a phone `.mini-stat` drops the fixed width
+// and shares the row evenly instead — see index.css.
+export function MiniStat({ label, value }: { label: string; value: string }) {
     return (
-        <div style={{ width: w, flex: 'none', textAlign: 'center' }}>
-            <Text fz={9} c="dimmed" tt="uppercase" fw={600} lts={0.6} style={{ whiteSpace: 'nowrap' }}>
+        <div className="mini-stat">
+            <Text fz={9} c="dimmed" tt="uppercase" fw={600} lts={0.6}>
                 {label}
             </Text>
-            <Text className="tnum" fz="xs" fw={600} lh={1.2} style={{ whiteSpace: 'nowrap' }}>
+            <Text className="tnum" fz="xs" fw={600} lh={1.2}>
                 {value}
             </Text>
         </div>

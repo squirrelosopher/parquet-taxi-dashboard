@@ -10,7 +10,6 @@ interface GroupingSetsProps {
 }
 
 const FOOTER_G = 99;
-const CUBE_COLUMN = 150;
 
 export function GroupingSets({ sections, groupCount, footerBytes }: GroupingSetsProps) {
     const [hovered, setHovered] = useState<number | null>(null);
@@ -22,7 +21,7 @@ export function GroupingSets({ sections, groupCount, footerBytes }: GroupingSets
 
     return (
         <Group align="flex-start" gap={20} wrap="nowrap">
-            <Box style={{ flex: 'none', width: CUBE_COLUMN }}>
+            <Box className="gs-cubes">
                 <Group gap={2} wrap="wrap">
                     {Array.from({ length: groupCount }, (_, i) => (
                         <div key={i} className="gs-square" data-on={!!lit && i >= lit.firstGroup && i <= lit.lastGroup} />
@@ -81,8 +80,8 @@ function SectionRow({ g, label, rows, bytes, maxBytes, first, footer, hovered, s
             <Text fw={500} fz="xs" style={{ flex: 1, minWidth: 0 }}>
                 {footer ? label : <><Text span c="dimmed" fw={500} fz={10} className="tnum">(g{g})</Text> {label}</>}
             </Text>
-            <Box w={82} ta="right"><Text className="tnum" fz="xs" c={footer ? 'dimmed' : undefined}>{rows}</Text></Box>
-            <Group w={124} gap="xs" wrap="nowrap">
+            <Box className="gs-count" ta="right"><Text className="tnum" fz="xs" c={footer ? 'dimmed' : undefined}>{rows}</Text></Box>
+            <Group className="gs-bytes" gap="xs" wrap="nowrap">
                 <div className="gs-bar-track" style={{ flex: 1 }}>
                     <div className="gs-bar-fill" style={{ width: `${(bytes / maxBytes) * 100}%`, background: footer ? 'var(--mantine-color-gray-4)' : undefined }} />
                 </div>

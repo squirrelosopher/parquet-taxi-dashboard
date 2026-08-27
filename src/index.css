@@ -88,6 +88,64 @@ body {
 .gs-row[data-hover='true'] {
     background: var(--mantine-color-yellow-0);
 }
+.gs-cubes {
+    flex: none;
+    width: 150px;
+}
+.gs-count {
+    flex: none;
+    width: 82px;
+}
+.gs-bytes {
+    flex: none;
+    width: 124px;
+}
+
+/* Narrower on a phone: the strip of squares grows taller instead of wider, and
+   the share bar gives up its space to the labels. */
+@media (max-width: 48em) {
+    .gs-cubes {
+        width: 60px;
+    }
+    .gs-count {
+        width: 60px;
+    }
+    .gs-bytes {
+        width: 46px;
+    }
+    .gs-bar-track {
+        display: none;
+    }
+}
+
+.mini-stat {
+    width: 94px;
+    flex: none;
+    text-align: center;
+}
+.mini-stat > * {
+    white-space: nowrap;
+}
+
+/* Phone: the five fetch stats give up their even pitch and most of their gap
+   so the strip stays one line instead of wrapping onto a second row. */
+@media (max-width: 48em) {
+    .fetch-stats {
+        width: 100%;
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+    .mini-stat {
+        width: auto;
+        min-width: 0;
+        flex: 1 1 0;
+    }
+    .mini-stat > * {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
 .gs-square {
     width: 8px;
     height: 8px;
