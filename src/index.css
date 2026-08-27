@@ -1,0 +1,121 @@
+:root {
+    color-scheme: light;
+    --paper: #efece4; /* warm page background */
+    --surface: #ffffff; /* elevated cards */
+    --brand: #f5821f; /* taxi orange accent */
+    --ink: #1a1a1a; /* body text */
+    --cube-idle: #d8d2c6; /* row-group square at rest */
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Everything below the hero uses IBM Plex Sans (the hero stays Nebula Sans). */
+.alt-font {
+    --mantine-font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    font-family: var(--mantine-font-family);
+}
+
+/* Elevated card surface. */
+.surface {
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(30, 25, 15, 0.06), 0 6px 20px rgba(30, 25, 15, 0.03);
+}
+
+.tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Drag-to-select chart: crosshair everywhere over the plot (Recharts sets its
+   own cursor on the inner SVG, so force it down). */
+.trips-chart,
+.trips-chart * {
+    cursor: crosshair;
+}
+
+/* Leaderboard rows. Hover/selected drawn with an OUTLINE (painted above the bar
+   fill and not clipped), so the ring is always a clean, complete rectangle and
+   never shifts layout. */
+.lb-row {
+    position: relative;
+    cursor: pointer;
+    border-radius: 7px;
+    padding: 8px 11px;
+    overflow: hidden;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.12s ease;
+}
+.lb-row[data-dimmed='true'] {
+    opacity: 0.4;
+}
+/* The share bar. Width is set inline; only the selected row is coloured. */
+.lb-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 0;
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    transition: background 0.12s ease;
+}
+.lb-row:hover .lb-bar {
+    background: color-mix(in srgb, var(--brand) 20%, transparent);
+}
+.lb-row[data-active='true'] .lb-bar {
+    background: color-mix(in srgb, var(--brand) 32%, transparent);
+}
+
+/* Grouping-sets panel: single left column of all row groups; hovering a right
+   row highlights that section's block of squares. */
+.gs-row {
+    transition: background 0.12s ease;
+    cursor: default;
+}
+.gs-row[data-hover='true'] {
+    background: var(--mantine-color-yellow-0);
+}
+.gs-square {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    background: var(--cube-idle);
+    transition: background 0.12s ease, transform 0.12s ease;
+}
+.gs-square[data-on='true'] {
+    background: var(--brand);
+    transform: scale(1.12);
+}
+.gs-footer-bar {
+    height: 9px;
+    border-radius: 2px;
+    background: var(--mantine-color-dark-5);
+    transition: background 0.12s ease;
+}
+.gs-footer-bar[data-on='true'] {
+    background: var(--brand);
+}
+.gs-bar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--mantine-color-gray-3);
+    overflow: hidden;
+}
+.gs-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--brand);
+}
