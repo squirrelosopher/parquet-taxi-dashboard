@@ -11,16 +11,29 @@ hosting, and the browser fetches only the bytes each interaction actually needs.
 A dashboard only ever asks a handful of questions, so the answers are worked out ahead of
 time. One DuckDB query rolls all 217M trips into six summaries and writes them to one file:
 
-| | summary | | summary |
+| | summary | rows | size |
 |---|---|---|---|
-| **g0** | totals | **g3** | per day |
-| **g1** | per borough | **g4** | per day × borough |
-| **g2** | per zone | **g5** | per day × zone |
+| **g0** | totals | 1 | 12 B |
+| **g1** | per borough | 8 | 97 B |
+| **g2** | per zone | 262 | 3 KB |
+| **g3** | per day | 1,826 | 22 KB |
+| **g4** | per day × borough | 14,460 | 157 KB |
+| **g5** | per day × zone | 415,651 | 3.6 MB |
 
-Each summary occupies its own stretch of the file, ordered by date. When you pick a borough
-or drag out a date range, the browser works out which summary can answer it and fetches just
-that stretch with an HTTP range request — normally one request and a few dozen kilobytes,
-never the whole file.
+Every summary covers all 217M trips and totals the same figure; they differ only in how much
+detail survived the roll-up. Each occupies its own stretch of the file, ordered by date, so
+the browser can fetch one with a single HTTP range request.
+
+Detail that has been aggregated away cannot be recovered, so each question is routed to the
+coarsest summary that still carries the dimensions it needs:
+
+- **Total trips?** `g0`, a single row, 12 bytes. The same figure could be reached by summing
+  all 415,651 rows of `g5`, at a cost of 3.6 MB.
+- **Trips per day in Manhattan?** Needs day and borough, so `g4` at 157 KB rather than `g5`.
+- **Busiest pickup zones?** Needs zone but not day, so `g2` at 3 KB.
+
+A typical interaction therefore costs one request and a few dozen kilobytes, never the whole
+file.
 
 The panel at the bottom of the page shows what each interaction really cost: bytes fetched,
 requests made, row groups touched. Those numbers are measured, not estimated.
