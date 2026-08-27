@@ -33,7 +33,7 @@ export function Brand() {
     return (
         <Group gap="xs" wrap="nowrap">
             <ThemeIcon size={32} radius="md" variant="filled" style={{ backgroundColor: 'var(--brand)', color: 'var(--paper)' }}>
-                <CarTaxiFront size={18} strokeWidth={2.2} />
+                <CarTaxiFront size={18} strokeWidth={2.2} style={{ transform: 'translateY(0.75px)' }} />
             </ThemeIcon>
             <div>
                 <Text fw={700} fz="sm" lh={1.1}>NYC Yellow Taxi</Text>
