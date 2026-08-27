@@ -44,14 +44,16 @@ export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; chil
     );
 }
 
-// Fixed width so a changing value never reflows the row.
-export function MiniStat({ label, value, w = 64 }: { label: string; value: string; w?: number }) {
+// One fixed width for every stat, wide enough for the longest label and the
+// longest value either can reach. Uniform boxes keep the columns on an even
+// pitch, and a changing value never reflows the row.
+export function MiniStat({ label, value, w = 94 }: { label: string; value: string; w?: number }) {
     return (
         <div style={{ width: w, flex: 'none' }}>
             <Text fz={9} c="dimmed" tt="uppercase" fw={600} lts={0.6} style={{ whiteSpace: 'nowrap' }}>
                 {label}
             </Text>
-            <Text className="tnum" fz="xs" fw={600} lh={1.2}>
+            <Text className="tnum" fz="xs" fw={600} lh={1.2} style={{ whiteSpace: 'nowrap' }}>
                 {value}
             </Text>
         </div>
