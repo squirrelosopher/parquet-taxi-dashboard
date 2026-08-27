@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Container, Stack, Text, Center, Loader } from '@mantine/core';
+import { Container, Group, Stack, Text, Center, Loader } from '@mantine/core';
 import { useCube, useView } from './hooks/useCube';
 import { toggleValue } from './lib/filter';
 import { toChartPoints } from './lib/series';
 import type { Dimension, Filter } from './lib/types';
-import { Brand } from './components/ui';
+import { Brand, SocialLinks } from './components/ui';
 import { Hero } from './components/Hero';
 import { ChartPanel } from './components/ChartPanel';
 import { Kpis } from './components/Kpis';
@@ -55,7 +55,10 @@ export function App() {
     return (
         <Container size="md" py={32}>
             <Stack gap={28}>
-                <Brand />
+                <Group justify="space-between" align="center" wrap="nowrap">
+                    <Brand />
+                    <SocialLinks />
+                </Group>
                 <Hero sizeMb={(cube.totalBytes / 1e6).toFixed(1)} sectionCount={cube.sections.length} rowGroupCount={cube.groups.length} />
 
                 <Stack className="alt-font" gap={28}>

@@ -36,7 +36,7 @@ The cube is committed, so it runs out of the box.
 
 ## Rebuilding the cube
 
-Needs the [DuckDB](https://duckdb.org) CLI:
+Needs the [DuckDB](https://duckdb.org/) CLI:
 
 ```bash
 duckdb < build_cube.sql
@@ -48,8 +48,8 @@ precisely but cost more metadata.
 
 ## Built with
 
-- **[hyparquet](https://github.com/hyparam/hyparquet)** — reads Parquet in the browser
-- **[DuckDB](https://duckdb.org)** — builds the cube offline
+- **[hyparquet](https://github.com/hyparam/hyparquet/)** — reads Parquet in the browser
+- **[DuckDB](https://duckdb.org/)** — builds the cube offline
 - **React**, **Mantine**, **Vite** — the interface
 
 ## Note on the file name

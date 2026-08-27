@@ -18,7 +18,7 @@ export function Hero({ sizeMb, sectionCount, rowGroupCount }: HeroProps) {
                 Those trips are pre-aggregated into a single <b>{sizeMb}&nbsp;MB</b> Parquet file. Selecting a
                 borough, a pickup zone, or a date range issues a byte-range request for only the rows that
                 answer it, read in the browser with{' '}
-                <Anchor href="https://github.com/hyparam/hyparquet" target="_blank" c="yellow.7" fw={700} inherit>hyparquet</Anchor>.
+                <Anchor href="https://github.com/hyparam/hyparquet/" target="_blank" c="yellow.7" fw={700} inherit>hyparquet</Anchor>.
                 No database, No API.
             </Text>
             <Group gap={6} mt="lg">

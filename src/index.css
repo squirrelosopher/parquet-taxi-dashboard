@@ -31,6 +31,15 @@ body {
     box-shadow: 0 1px 3px rgba(30, 25, 15, 0.06), 0 6px 20px rgba(30, 25, 15, 0.03);
 }
 
+.social-link {
+    display: flex;
+    color: var(--mantine-color-dimmed);
+    transition: color 0.12s ease;
+}
+.social-link:hover {
+    color: var(--brand);
+}
+
 .tnum {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
