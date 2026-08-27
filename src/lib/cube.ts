@@ -37,6 +37,8 @@ export interface Section {
 interface Group {
     startRow: number;
     endRow: number;
+    gMin: number;
+    gMax: number;
     dayMin: number;
     dayMax: number;
     byteStart: number;
@@ -97,7 +99,14 @@ function toMs(v: unknown): number {
 
 // Prefetch one contiguous byte span and serve hyparquet's per-column slices from
 // it, so a section read costs a single HTTP range request instead of one per column.
-async function coalescedRead(cube: { file: Slicer; meta: Cube['meta'] }, byteStart: number, byteEnd: number, rowStart: number, rowEnd: number): Promise<Row[]> {
+async function coalescedRead(
+    cube: { file: Slicer; meta: Cube['meta'] },
+    byteStart: number,
+    byteEnd: number,
+    rowStart: number,
+    rowEnd: number,
+    columns: string[] = COLUMNS,
+): Promise<Row[]> {
     const prefetched = await cube.file.slice(byteStart, byteEnd);
     const mem: Slicer = {
         byteLength: cube.file.byteLength,
@@ -109,11 +118,32 @@ async function coalescedRead(cube: { file: Slicer; meta: Cube['meta'] }, byteSta
             return cube.file.slice(s, e);
         },
     };
-    return parquetReadObjects({ file: mem, metadata: cube.meta, compressors, columns: COLUMNS, rowStart, rowEnd });
+    return parquetReadObjects({ file: mem, metadata: cube.meta, compressors, columns, rowStart, rowEnd });
+}
+
+// Range reads address the *selected representation*, so an origin that transcodes
+// the response (gzip/br) silently shifts every offset onto the compressed stream —
+// the footer read then lands on encoding trailer bytes. Diagnose that here rather
+// than letting it surface downstream as a bogus "invalid parquet file".
+async function probe(url: string): Promise<number> {
+    const res = await fetch(url, { method: 'HEAD' });
+    if (!res.ok) {
+        throw new Error(`${url} → HTTP ${res.status} ${res.statusText}`);
+    }
+    const encoding = res.headers.get('content-encoding');
+    if (encoding) {
+        throw new Error(`origin re-encoded the cube (content-encoding: ${encoding}); range reads need it served verbatim`);
+    }
+    const length = Number(res.headers.get('content-length'));
+    if (!length) {
+        throw new Error(`${url} → no content-length; cannot plan range reads`);
+    }
+    return length;
 }
 
 export async function openCube(url: string): Promise<Cube> {
-    const raw = await asyncBufferFromUrl({ url });
+    // Passing byteLength keeps hyparquet from issuing its own HEAD for the same fact.
+    const raw = await asyncBufferFromUrl({ url, byteLength: await probe(url) });
     let read = 0;
     let reqs = 0;
     const file: Slicer = {
@@ -128,6 +158,7 @@ export async function openCube(url: string): Promise<Cube> {
     const meta = await parquetMetadataAsync(file);
     const cols = meta.row_groups[0].columns.map((c) => c.meta_data?.path_in_schema.join('.'));
     const dayCol = cols.indexOf('day');
+    const gCol = cols.indexOf('g');
 
     let rowc = 0;
     let dataBytes = 0;
@@ -147,9 +178,12 @@ export async function openCube(url: string): Promise<Cube> {
             compressed += num(m.total_compressed_size);
         }
         const day = rg.columns[dayCol].meta_data?.statistics;
+        const gStat = rg.columns[gCol].meta_data?.statistics;
         const group: Group = {
             startRow: rowc,
             endRow: rowc + n,
+            gMin: num(gStat?.min_value),
+            gMax: num(gStat?.max_value),
             dayMin: toMs(day?.min_value),
             dayMax: toMs(day?.max_value),
             byteStart,
@@ -175,19 +209,37 @@ export async function openCube(url: string): Promise<Cube> {
         sections: [],
     };
 
-    // Read the tiny `g` column for every row once to get exact section boundaries.
+    // Section boundaries come from the row-group `g` statistics in the footer we
+    // already hold. The cube is sorted by g, so a row group whose g min == max lies
+    // wholly inside one section and needs no read at all; only the handful that
+    // straddle a boundary have their `g` column read to pin the exact row.
     const total = Number(meta.num_rows);
-    const gcol = await parquetReadObjects({ file, metadata: meta, compressors, columns: ['g'], rowStart: 0, rowEnd: total });
-    const counts = new Array<number>(SECTION_COUNT).fill(0);
-    for (const r of gcol) {
-        counts[Number(r.g)] += 1;
+    const sectionStart = new Array<number>(SECTION_COUNT).fill(-1);
+    for (const grp of groups) {
+        if (grp.gMin === grp.gMax) {
+            if (sectionStart[grp.gMin] === -1) {
+                sectionStart[grp.gMin] = grp.startRow;
+            }
+            continue;
+        }
+        const rows = await coalescedRead(cube, grp.byteStart, grp.byteEnd, grp.startRow, grp.endRow, ['g']);
+        rows.forEach((r, i) => {
+            const g = Number(r.g);
+            if (sectionStart[g] === -1) {
+                sectionStart[g] = grp.startRow + i;
+            }
+        });
     }
-    let offset = 0;
-    cube.sectionRows = counts.map((c) => {
-        const range = { start: offset, end: offset + c };
-        offset += c;
-        return range;
-    });
+    // Right-to-left so a section with no rows collapses to an empty range.
+    for (let g = SECTION_COUNT - 1; g >= 0; g--) {
+        if (sectionStart[g] === -1) {
+            sectionStart[g] = g + 1 < SECTION_COUNT ? sectionStart[g + 1] : total;
+        }
+    }
+    cube.sectionRows = sectionStart.map((start, g) => ({
+        start,
+        end: g + 1 < SECTION_COUNT ? sectionStart[g + 1] : total,
+    }));
 
     // The head sections share the first row groups: one read seeds totals + line.
     const headEnd = cube.sectionRows[DAILY_G + 1].start;
@@ -218,7 +270,7 @@ export async function openCube(url: string): Promise<Cube> {
         return { rowGroups, bytes };
     };
     const labels = ['totals', 'by borough', 'by zone', 'daily', 'daily × borough', 'daily × zone'];
-    cube.sections = labels.map((label, g) => ({ g, label, rows: counts[g], ...stat(g) }));
+    cube.sections = labels.map((label, g) => ({ g, label, rows: cube.sectionRows[g].end - cube.sectionRows[g].start, ...stat(g) }));
 
     return cube;
 }

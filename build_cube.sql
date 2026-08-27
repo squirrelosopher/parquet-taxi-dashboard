@@ -1,6 +1,6 @@
 -- Build the NYC taxi cube from the public TLC Parquet files with DuckDB.
 --   1. stream 60 monthly files -> raw.parquet  (day, borough, zone grain)
---   2. expand into one cube of GROUP BY GROUPING SETS -> public/cube.parquet
+--   2. expand into one cube of GROUP BY GROUPING SETS -> public/cube.parquet.png
 --
 -- Dimensions: borough (8) and pickup zone (~265, drills down within a borough).
 -- Zone → borough is 1:1, so zone sections carry their borough as an attribute.
@@ -38,7 +38,13 @@ COPY (
   GROUP BY 1, 2, 3
 ) TO 'raw.parquet' (FORMAT parquet, COMPRESSION snappy);
 
--- cube.parquet: grouping sets stacked in one file, sorted by (g, day, borough,
+-- The .png extension is deliberate. GitHub Pages gzip-transcodes
+-- application/octet-stream, and HTTP ranges then address the compressed stream
+-- rather than the file, so every offset is wrong. Extensions that map to an
+-- already-compressed type are passed through verbatim. The file is ordinary
+-- Parquet; only the content-type the CDN infers changes.
+--
+-- cube.parquet.png: grouping sets stacked in one file, sorted by (g, day, borough,
 -- zone) so each section is contiguous and the daily sections are day-sorted.
 --   g0 total          g1 by borough      g2 by zone
 --   g3 daily          g4 daily × borough g5 daily × zone (the workhorse; range-read)
@@ -58,4 +64,4 @@ COPY (
     SELECT 5, day, borough, zone, sum(trips), round(sum(revenue),2) FROM 'raw.parquet' GROUP BY day, borough, zone
   )
   ORDER BY g, day, borough, zone
-) TO 'public/cube.parquet' (FORMAT parquet, COMPRESSION snappy, ROW_GROUP_SIZE 8192);
+) TO 'public/cube.parquet.png' (FORMAT parquet, COMPRESSION snappy, ROW_GROUP_SIZE 8192);

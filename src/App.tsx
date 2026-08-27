@@ -12,7 +12,7 @@ import { Leaderboards } from './components/Leaderboards';
 import { CubeSection } from './components/CubeSection';
 import { DashboardFooter } from './components/DashboardFooter';
 
-const CUBE_URL = `${import.meta.env.BASE_URL}cube.parquet`;
+const CUBE_URL = `${import.meta.env.BASE_URL}cube.parquet.png`;
 const EMPTY_TOTALS = { trips: 0, revenue: 0, avgFare: 0 };
 
 export function App() {
