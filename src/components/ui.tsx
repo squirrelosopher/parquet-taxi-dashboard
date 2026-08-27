@@ -43,13 +43,14 @@ export function Brand() {
     );
 }
 
-export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; children: ReactNode; color?: string }) {
+export function Tag({ icon, children, color = 'gray', visibleFrom }: { icon?: ReactNode; children: ReactNode; color?: string; visibleFrom?: string }) {
     return (
         <Badge
             variant="light"
             color={color}
             radius="sm"
             leftSection={icon}
+            visibleFrom={visibleFrom}
             styles={{
                 root: {
                     height: 26,

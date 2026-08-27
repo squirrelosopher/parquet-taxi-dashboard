@@ -23,7 +23,7 @@ export function Hero({ sizeMb, sectionCount, rowGroupCount }: HeroProps) {
             </Text>
             <Group gap={6} mt="lg">
                 <Tag>217M trips</Tag>
-                <Tag>2019 – 2023</Tag>
+                <Tag visibleFrom="sm">2019 – 2023</Tag>
                 <Tag>{sectionCount} grouping sets</Tag>
                 <Tag>{rowGroupCount} row groups</Tag>
             </Group>

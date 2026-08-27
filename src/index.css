@@ -127,18 +127,22 @@ body {
     white-space: nowrap;
 }
 
-/* Phone: the five fetch stats give up their even pitch and most of their gap
-   so the strip stays one line instead of wrapping onto a second row. */
+/* Phone: the five fetch stats give up their even pitch so the strip stays one
+   line instead of wrapping onto a second row. Each column shrinks to its own
+   content and the slack is spread between them — equal-width columns would
+   centre a short label like "Time" in a wide box, which reads as a gap twice
+   the size of its neighbours. */
 @media (max-width: 48em) {
     .fetch-stats {
         width: 100%;
         flex-wrap: nowrap;
+        justify-content: space-between;
         gap: 6px;
     }
     .mini-stat {
         width: auto;
         min-width: 0;
-        flex: 1 1 0;
+        flex: 0 1 auto;
     }
     .mini-stat > * {
         overflow: hidden;
