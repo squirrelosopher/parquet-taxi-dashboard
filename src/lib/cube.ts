@@ -23,7 +23,8 @@ export interface Section {
     g: number;
     label: string;
     rows: number;
-    rowGroups: number;
+    firstGroup: number;
+    lastGroup: number;
     bytes: number;
 }
 
@@ -63,7 +64,6 @@ export interface ViewResult {
     sections: number[];
     bytes: number;
     groupsRead: number;
-    rowsScanned: number;
     requests: number;
     ms: number;
 }
@@ -239,18 +239,22 @@ export async function openCube(url: string): Promise<Cube> {
     }
     cube.daily.sort((a, b) => a.t - b.t);
 
-    const stat = (g: number): { rowGroups: number; bytes: number } => {
+    const stat = (g: number): Omit<Section, 'g' | 'label' | 'rows'> => {
         const { start, end } = cube.sectionRows[g];
-        let rowGroups = 0;
         let bytes = 0;
-        for (const grp of groups) {
+        let firstGroup = -1;
+        let lastGroup = -1;
+        groups.forEach((grp, i) => {
             const overlap = Math.min(end, grp.endRow) - Math.max(start, grp.startRow);
             if (overlap > 0) {
-                rowGroups += 1;
+                if (firstGroup === -1) {
+                    firstGroup = i;
+                }
+                lastGroup = i;
                 bytes += grp.bytes * (overlap / (grp.endRow - grp.startRow));
             }
-        }
-        return { rowGroups, bytes };
+        });
+        return { firstGroup, lastGroup, bytes };
     };
     const labels = ['totals', 'by borough', 'by zone', 'daily', 'daily × borough', 'daily × zone'];
     cube.sections = labels.map((label, g) => ({ g, label, rows: cube.sectionRows[g].end - cube.sectionRows[g].start, ...stat(g) }));
@@ -442,7 +446,6 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
     const totals = totalsFor(cube, kpiRead, filter, win);
 
     const sections = Array.from(new Set([lineRead.g, boroughRead.g, zoneRead.g, kpiRead.g])).sort((a, b) => a - b);
-    const rowsScanned = reads.reduce((sum, r) => sum + r.rows.length, 0);
 
     return {
         daily,
@@ -452,7 +455,6 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
         sections,
         bytes: cube.bytesRead() - before.bytes,
         groupsRead,
-        rowsScanned,
         requests: cube.requests() - before.reqs,
         ms: performance.now() - t0,
     };

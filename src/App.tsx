@@ -65,7 +65,7 @@ export function App() {
                     <ChartPanel data={chartData} loading={loading} view={view} onWindow={(d0, d1) => setRange({ d0, d1 })} />
                     <Kpis totals={totals} />
                     <Leaderboards borough={view?.boroughLb ?? []} zone={view?.zoneLb ?? []} filter={filter} onToggle={toggle} />
-                    <CubeSection sections={cube.sections} footerBytes={cube.footerBytes} />
+                    <CubeSection sections={cube.sections} groupCount={cube.groups.length} footerBytes={cube.footerBytes} />
                     <DashboardFooter />
                 </Stack>
             </Stack>
