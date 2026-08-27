@@ -6,6 +6,14 @@ hosting, and the browser fetches only the bytes each interaction actually needs.
 
 **Live demo:** https://squirrelosopher.github.io/parquet-taxi-dashboard/
 
+## Contents
+
+- [The idea](#the-idea)
+- [Run](#run)
+- [Rebuilding the cube](#rebuilding-the-cube)
+- [Design notes](#design-notes)
+- [Data and credits](#data-and-credits)
+
 ## The idea
 
 A dashboard only ever asks a handful of questions, so the answers are worked out ahead of
@@ -59,29 +67,46 @@ This streams the NYC TLC files into `raw.parquet` and writes the six summaries i
 cube. `ROW_GROUP_SIZE` sets how finely the file can be sliced: smaller row groups fetch more
 precisely but cost more metadata.
 
-## Built with
+## Design notes
 
-- **[hyparquet](https://github.com/hyparam/hyparquet/)** — reads Parquet in the browser
-- **[DuckDB](https://duckdb.org/)** — builds the cube offline
-- **React**, **Mantine**, **Vite** — the interface
+A few decisions that are easy to miss when reading the code.
 
-## Note on the file name
+**Zone is deliberately absent from the time series.** A single zone's rows are spread across the
+whole of the day-sorted `daily × zone` summary, so drawing a per-zone line would mean scanning
+all 3.6 MB of it. Zone stays a leaderboard and KPI filter, where the coarser summaries answer it,
+and every read stays small.
 
-`cube.parquet.png` is an ordinary Parquet file. GitHub Pages decides how to serve a file from
-its extension alone, and compresses anything it considers compressible — which shifts the byte
-offsets this project relies on and breaks range requests. The `.png` suffix makes Pages hand
-the file over untouched. Anywhere you can set response headers yourself, plain
-`cube.parquet` works fine.
+**Section boundaries come out of the footer, not a scan.** Each row group records the smallest
+and largest `g` it contains. Rows are sorted by `g`, so a row group whose two values match sits
+entirely inside one summary and is never read. Only the handful straddling a boundary are opened
+to find the exact row it falls on — two of fifty-three in the current cube.
 
-## Credit
+**A section costs one request, not one per column.** Parquet stores each column separately, so
+reading six columns the obvious way means six requests per row group. Each read fetches one
+contiguous span covering all of them and serves the per-column slices out of that span.
 
-Adapted from Hamilton Ulmer's
+**The cube is served with a `.png` extension.** It is an ordinary Parquet file. GitHub Pages
+picks a content type from the extension alone and compresses anything it deems compressible,
+which shifts every byte offset and breaks range requests. The suffix makes Pages hand the file
+over untouched. Anywhere response headers can be set directly, plain `cube.parquet` works.
+
+## Data and credits
+
+Trip data comes from the NYC TLC
+[Yellow Taxi Trip Records](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page).
+
+The backend-less approach is adapted from Hamilton Ulmer's
 [Customer-facing dashboards without a backend](https://www.hamiltonulmer.com/customer-dashboards-r2-hyparquet/),
 which reads one Parquet file straight from R2. This version keeps six summaries at different
-levels of detail in a single file and picks the cheapest one that can answer each interaction.
+levels of detail in a single file and routes each interaction to the cheapest one that can
+answer it.
 
-Data: NYC TLC [Yellow Taxi Trip Records](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page).
+Built with [hyparquet](https://github.com/hyparam/hyparquet/) for reading Parquet in the browser,
+[DuckDB](https://duckdb.org/) for building the cube, and [React](https://react.dev/),
+[Mantine](https://mantine.dev/) and [Vite](https://vite.dev/) for the interface.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+Author: Aleksandar Miladinović ([@squirrelosopher](https://github.com/squirrelosopher/))
