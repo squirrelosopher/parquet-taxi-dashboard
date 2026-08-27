@@ -5,10 +5,10 @@ import type { ViewResult } from '../lib/cube';
 
 export function FetchStats({ view }: { view: ViewResult | null }) {
     return (
-        <Group gap={24} wrap="wrap">
-            <MiniStat label="Sections" value={fmtSections(view?.sections ?? [])} w={128} />
+        <Group gap={16} wrap="wrap">
+            <MiniStat label="Sections" value={fmtSections(view?.sections ?? [])} w={106} />
             <MiniStat label="Fetched" value={`${((view?.bytes ?? 0) / 1024).toFixed(0)} KB`} />
-            <MiniStat label="Row groups" value={String(view?.groupsRead ?? 0)} />
+            <MiniStat label="Row groups" value={String(view?.groupsRead ?? 0)} w={72} />
             <MiniStat label="Requests" value={String(view?.requests ?? 0)} />
             <MiniStat label="Time" value={`${Math.round(view?.ms ?? 0)} ms`} />
         </Group>

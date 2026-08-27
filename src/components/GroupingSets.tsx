@@ -9,7 +9,7 @@ interface GroupingSetsProps {
 }
 
 const FOOTER_G = 99;
-const CUBE_COLUMN = 176;
+const CUBE_COLUMN = 150;
 
 interface SectionLine {
     section: number; // one section's row groups on their own line
@@ -49,18 +49,18 @@ export function GroupingSets({ sections, footerBytes }: GroupingSetsProps) {
     const leave = () => setHovered(null);
 
     return (
-        <Group align="flex-start" gap={28} wrap="nowrap">
+        <Group align="flex-start" gap={20} wrap="nowrap">
             <Box style={{ flex: 'none', width: CUBE_COLUMN }}>
-                <Stack gap={6}>
+                <Stack gap={5}>
                     {toLines(sections).map((line, i) => 'singles' in line ? (
-                        // Distinct sections share this line, so each cube hovers on its own.
+                        // Several sections share this line, so each cube hovers independently.
                         <Group key={i} gap={2} wrap="wrap">
                             {line.singles.map((g) => (
                                 <div key={g} className="gs-square" data-on={hovered === g} onMouseEnter={enter(g)} onMouseLeave={leave} />
                             ))}
                         </Group>
                     ) : (
-                        // One section: hover the whole line so gaps between cubes hold.
+                        // One section: hovering anywhere on the line lights all of its cubes.
                         <Group key={i} gap={2} wrap="wrap" onMouseEnter={enter(line.section)} onMouseLeave={leave}>
                             {Array.from({ length: line.count }, (_, j) => (
                                 <div key={j} className="gs-square" data-on={hovered === line.section} />
@@ -113,20 +113,20 @@ function SectionRow({ g, label, rows, bytes, maxBytes, first, footer, hovered, s
             wrap="nowrap"
             gap="md"
             px="md"
-            py={9}
+            py={6}
             style={{ borderTop: first ? undefined : `1px solid var(--mantine-color-gray-${footer ? 2 : 1})` }}
             onMouseEnter={() => setHovered(g)}
             onMouseLeave={() => setHovered(null)}
         >
-            <Text fw={600} fz="sm" tt="uppercase" lts={0.4} style={{ flex: 1, minWidth: 0 }}>
-                {footer ? label : <><Text span c="dimmed" fw={500} tt="none" className="tnum">(g{g})</Text> {label}</>}
+            <Text fw={500} fz="xs" style={{ flex: 1, minWidth: 0 }}>
+                {footer ? label : <><Text span c="dimmed" fw={500} className="tnum">(g{g})</Text> {label}</>}
             </Text>
-            <Box w={92} ta="right"><Text className="tnum" fz="sm" c={footer ? 'dimmed' : undefined}>{rows}</Text></Box>
-            <Group w={140} gap="xs" wrap="nowrap">
+            <Box w={82} ta="right"><Text className="tnum" fz="xs" c={footer ? 'dimmed' : undefined}>{rows}</Text></Box>
+            <Group w={124} gap="xs" wrap="nowrap">
                 <div className="gs-bar-track" style={{ flex: 1 }}>
                     <div className="gs-bar-fill" style={{ width: `${(bytes / maxBytes) * 100}%`, background: footer ? 'var(--mantine-color-gray-4)' : undefined }} />
                 </div>
-                <Text className="tnum" fz="xs" c="dimmed" w={50} ta="right">{bytesH(bytes)}</Text>
+                <Text className="tnum" fz={10} c="dimmed" w={46} ta="right">{bytesH(bytes)}</Text>
             </Group>
         </Group>
     );

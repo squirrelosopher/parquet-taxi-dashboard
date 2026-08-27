@@ -22,7 +22,7 @@ export function Leaderboard({ title, rows, selected, onSelect, limit }: Leaderbo
     const max = Math.max(1, ...withSelected.map((r) => r.trips));
     return (
         <div>
-            <Text fz="xs" c="dimmed" tt="uppercase" fw={600} lts={0.6} mb="sm">{title}</Text>
+            <Text fz={10} c="dimmed" tt="uppercase" fw={600} lts={0.6} mb="xs">{title}</Text>
             <Stack gap={2}>
                 {withSelected.map((r) => {
                     const active = picked.includes(r.key);
@@ -38,8 +38,8 @@ export function Leaderboard({ title, rows, selected, onSelect, limit }: Leaderbo
                         >
                             <div className="lb-bar" style={{ width: `${pct}%` }} />
                             <Group justify="space-between" wrap="nowrap" w="100%" gap="sm" style={{ position: 'relative', zIndex: 1 }}>
-                                <Text fz="sm" fw={active ? 700 : 500} truncate>{r.key}</Text>
-                                <Text className="tnum" fz="sm" fw={active ? 600 : 400}>{intComma(r.trips)}</Text>
+                                <Text fz="xs" fw={active ? 700 : 500} truncate>{r.key}</Text>
+                                <Text className="tnum" fz="xs" fw={active ? 600 : 400}>{intComma(r.trips)}</Text>
                             </Group>
                         </div>
                     );

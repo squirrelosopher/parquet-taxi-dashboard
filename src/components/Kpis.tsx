@@ -6,10 +6,10 @@ import type { Totals } from '../lib/types';
 
 export function Kpis({ totals }: { totals: Totals }) {
     return (
-        <SimpleGrid cols={{ base: 3 }} spacing="md">
-            <StatCard icon={<Route size={20} />} label="Trips" value={compact(totals.trips)} sub={intComma(totals.trips)} />
-            <StatCard icon={<DollarSign size={20} />} label="Revenue" value={money(totals.revenue)} sub={moneyExact(totals.revenue)} />
-            <StatCard icon={<Wallet size={20} />} label="Avg fare" value={`$${totals.avgFare.toFixed(2)}`} />
+        <SimpleGrid cols={{ base: 3 }} spacing="sm">
+            <StatCard icon={<Route size={16} />} label="Trips" value={compact(totals.trips)} sub={intComma(totals.trips)} />
+            <StatCard icon={<DollarSign size={16} />} label="Revenue" value={money(totals.revenue)} sub={moneyExact(totals.revenue)} />
+            <StatCard icon={<Wallet size={16} />} label="Avg fare" value={`$${totals.avgFare.toFixed(2)}`} />
         </SimpleGrid>
     );
 }

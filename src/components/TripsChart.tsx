@@ -78,12 +78,12 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
         [selLo, selHi] = [dragR, dragL];
     }
 
-    // The range to keep vivid: the live drag, else the committed selection.
+    // The range to keep unmasked: the live drag, else the committed selection.
     const active = selecting ? (selLo && selHi ? [selLo, selHi] : null) : committed;
 
     return (
         <div className="trips-chart" style={{ userSelect: 'none' }}>
-            <ResponsiveContainer width="100%" height={340}>
+            <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }} onMouseDown={down} onMouseMove={move} onMouseUp={up} onMouseLeave={() => selecting && up()}>
                     <defs>
                         <linearGradient id="trips" x1="0" y1="0" x2="0" y2="1">
@@ -96,14 +96,14 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
                         dataKey="label"
                         tickFormatter={monthLabel}
                         minTickGap={60}
-                        tick={{ fill: 'var(--mantine-color-dimmed)', fontSize: 11 }}
+                        tick={{ fill: 'var(--mantine-color-dimmed)', fontSize: 10 }}
                         tickLine={false}
                         axisLine={{ stroke: 'var(--mantine-color-default-border)' }}
                     />
                     <YAxis
                         tickFormatter={compact}
-                        width={44}
-                        tick={{ fill: 'var(--mantine-color-dimmed)', fontSize: 11 }}
+                        width={38}
+                        tick={{ fill: 'var(--mantine-color-dimmed)', fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
                     />
@@ -115,7 +115,7 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
                     <Area type="monotone" dataKey="trips" stroke="var(--mantine-color-yellow-6)" strokeWidth={2.5} fill="url(#trips)" isAnimationActive={false} />
                     {active && (
                         <>
-                            {/* Wash out everything outside the selection so it reads as muted. */}
+                            {/* Mask everything outside the selection. */}
                             <ReferenceArea x1={firstLabel} x2={active[0]} fill="var(--surface)" fillOpacity={0.68} />
                             <ReferenceArea x1={active[1]} x2={lastLabel} fill="var(--surface)" fillOpacity={0.68} />
                         </>

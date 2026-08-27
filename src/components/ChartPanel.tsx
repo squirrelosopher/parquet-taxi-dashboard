@@ -17,12 +17,12 @@ export function ChartPanel({ data, loading, view, onWindow }: ChartPanelProps) {
     return (
         <Box>
             <SectionHeading
-                icon={<TrendingUp size={16} />}
+                icon={<TrendingUp size={14} />}
                 label="Daily trips — drag to select a range"
                 aside={loading && <Loader size="xs" color="yellow" />}
                 right={<FetchStats view={view} />}
             />
-            <Paper withBorder p="lg" radius="md" className="surface">
+            <Paper withBorder p="md" radius="md" className="surface">
                 <TripsChart data={data} onWindow={onWindow} />
             </Paper>
         </Box>

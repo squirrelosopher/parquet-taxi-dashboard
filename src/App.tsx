@@ -55,12 +55,12 @@ export function App() {
     const totals = view?.totals ?? EMPTY_TOTALS;
 
     return (
-        <Container size="lg" py={48}>
-            <Stack gap={44}>
+        <Container size="md" py={32}>
+            <Stack gap={28}>
                 <Brand />
                 <Hero sizeMb={(cube.totalBytes / 1e6).toFixed(1)} sectionCount={cube.sections.length} rowGroupCount={cube.groups.length} />
 
-                <Stack className="alt-font" gap={36}>
+                <Stack className="alt-font" gap={28}>
                     <ChartPanel data={chartData} loading={loading} view={view} onWindow={(d0, d1) => setWindow({ d0, d1 })} />
                     <Kpis totals={totals} />
                     <Leaderboards borough={view?.boroughLb ?? []} zone={view?.zoneLb ?? []} filter={filter} onToggle={toggle} />

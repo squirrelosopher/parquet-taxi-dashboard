@@ -38,23 +38,21 @@ body {
     font-feature-settings: 'tnum' 1;
 }
 
-/* Drag-to-select chart: crosshair everywhere over the plot (Recharts sets its
-   own cursor on the inner SVG, so force it down). */
+/* Recharts sets its own cursor on the inner SVG, so force the crosshair down. */
 .trips-chart,
 .trips-chart * {
     cursor: crosshair;
 }
 
-/* Leaderboard rows. Hover/selected drawn with an OUTLINE (painted above the bar
-   fill and not clipped), so the ring is always a clean, complete rectangle and
-   never shifts layout. */
+/* Leaderboard rows. The bar sits behind the label; hover and selection only
+   change its fill, so nothing reflows. */
 .lb-row {
     position: relative;
     cursor: pointer;
     border-radius: 7px;
-    padding: 8px 11px;
+    padding: 5px 9px;
     overflow: hidden;
-    min-height: 36px;
+    min-height: 28px;
     display: flex;
     align-items: center;
     transition: opacity 0.12s ease;
@@ -62,7 +60,7 @@ body {
 .lb-row[data-dimmed='true'] {
     opacity: 0.4;
 }
-/* The share bar. Width is set inline; only the selected row is coloured. */
+/* Share bar; width is set inline. */
 .lb-bar {
     position: absolute;
     top: 0;
@@ -89,8 +87,8 @@ body {
     background: var(--mantine-color-yellow-0);
 }
 .gs-square {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 2px;
     background: var(--cube-idle);
     transition: background 0.12s ease, transform 0.12s ease;
@@ -100,7 +98,7 @@ body {
     transform: scale(1.12);
 }
 .gs-footer-bar {
-    height: 9px;
+    height: 8px;
     border-radius: 2px;
     background: var(--mantine-color-dark-5);
     transition: background 0.12s ease;

@@ -2,7 +2,6 @@ import { createTheme } from '@mantine/core';
 
 const FONT = '"Nebula Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
 
-// Taxi-yellow accent, but used sparingly. Nebula Sans throughout.
 export const theme = createTheme({
     primaryColor: 'yellow',
     primaryShade: { light: 7, dark: 5 },

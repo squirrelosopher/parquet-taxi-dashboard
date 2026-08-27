@@ -11,22 +11,22 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, icon, color = 'gray' }: StatCardProps) {
     return (
-        <Paper withBorder p="lg" radius="md" className="surface">
+        <Paper withBorder p="md" radius="md" className="surface">
             <Group justify="space-between" align="flex-start" wrap="nowrap">
                 <div>
-                    <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={0.6}>
+                    <Text fz={10} c="dimmed" tt="uppercase" fw={600} lts={0.6}>
                         {label}
                     </Text>
-                    <Text className="tnum" fz={25} fw={700} lh={1.05} mt={6}>
+                    <Text className="tnum" fz={21} fw={700} lh={1.05} mt={4}>
                         {value}
                     </Text>
                     {sub && (
-                        <Text className="tnum" size="xs" c="dimmed" mt={6}>
+                        <Text className="tnum" fz={10} c="dimmed" mt={3}>
                             {sub}
                         </Text>
                     )}
                 </div>
-                <ThemeIcon variant="light" color={color} size={38} radius="md">
+                <ThemeIcon variant="light" color={color} size={30} radius="md">
                     {icon}
                 </ThemeIcon>
             </Group>
