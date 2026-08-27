@@ -119,7 +119,7 @@ function SectionRow({ g, label, rows, bytes, maxBytes, first, footer, hovered, s
             onMouseLeave={() => setHovered(null)}
         >
             <Text fw={500} fz="xs" style={{ flex: 1, minWidth: 0 }}>
-                {footer ? label : <><Text span c="dimmed" fw={500} className="tnum">(g{g})</Text> {label}</>}
+                {footer ? label : <><Text span c="dimmed" fw={500} fz={10} className="tnum">(g{g})</Text> {label}</>}
             </Text>
             <Box w={82} ta="right"><Text className="tnum" fz="xs" c={footer ? 'dimmed' : undefined}>{rows}</Text></Box>
             <Group w={124} gap="xs" wrap="nowrap">

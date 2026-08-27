@@ -46,10 +46,11 @@ export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; chil
 
 // One fixed width for every stat, wide enough for the longest label and the
 // longest value either can reach. Uniform boxes keep the columns on an even
-// pitch, and a changing value never reflows the row.
+// pitch, and a changing value never reflows the row. Both lines are centred, so
+// the value sits under the middle of its label however much shorter it is.
 export function MiniStat({ label, value, w = 94 }: { label: string; value: string; w?: number }) {
     return (
-        <div style={{ width: w, flex: 'none' }}>
+        <div style={{ width: w, flex: 'none', textAlign: 'center' }}>
             <Text fz={9} c="dimmed" tt="uppercase" fw={600} lts={0.6} style={{ whiteSpace: 'nowrap' }}>
                 {label}
             </Text>
