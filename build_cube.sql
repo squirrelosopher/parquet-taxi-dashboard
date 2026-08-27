@@ -38,11 +38,8 @@ COPY (
   GROUP BY 1, 2, 3
 ) TO 'raw.parquet' (FORMAT parquet, COMPRESSION snappy);
 
--- The .png extension is deliberate. GitHub Pages gzip-transcodes
--- application/octet-stream, and HTTP ranges then address the compressed stream
--- rather than the file, so every offset is wrong. Extensions that map to an
--- already-compressed type are passed through verbatim. The file is ordinary
--- Parquet; only the content-type the CDN infers changes.
+-- The .png extension keeps GitHub Pages from compressing the file, which would
+-- shift the byte offsets range reads depend on. The contents are plain Parquet.
 --
 -- cube.parquet.png: grouping sets stacked in one file, sorted by (g, day, borough,
 -- zone) so each section is contiguous and the daily sections are day-sorted.

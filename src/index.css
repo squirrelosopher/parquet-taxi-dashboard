@@ -1,10 +1,10 @@
 :root {
     color-scheme: light;
-    --paper: #efece4; /* warm page background */
-    --surface: #ffffff; /* elevated cards */
-    --brand: #f5821f; /* taxi orange accent */
-    --ink: #1a1a1a; /* body text */
-    --cube-idle: #d8d2c6; /* row-group square at rest */
+    --paper: #efece4;
+    --surface: #ffffff;
+    --brand: #f5821f;
+    --ink: #1a1a1a;
+    --cube-idle: #d8d2c6;
 }
 
 html,
@@ -21,13 +21,11 @@ body {
     text-rendering: optimizeLegibility;
 }
 
-/* Everything below the hero uses IBM Plex Sans (the hero stays Nebula Sans). */
 .alt-font {
     --mantine-font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     font-family: var(--mantine-font-family);
 }
 
-/* Elevated card surface. */
 .surface {
     background: var(--surface);
     box-shadow: 0 1px 3px rgba(30, 25, 15, 0.06), 0 6px 20px rgba(30, 25, 15, 0.03);
@@ -38,14 +36,12 @@ body {
     font-feature-settings: 'tnum' 1;
 }
 
-/* Recharts sets its own cursor on the inner SVG, so force the crosshair down. */
+/* Recharts sets its own cursor on the inner SVG. */
 .trips-chart,
 .trips-chart * {
     cursor: crosshair;
 }
 
-/* Leaderboard rows. The bar sits behind the label; hover and selection only
-   change its fill, so nothing reflows. */
 .lb-row {
     position: relative;
     cursor: pointer;
@@ -60,7 +56,6 @@ body {
 .lb-row[data-dimmed='true'] {
     opacity: 0.4;
 }
-/* Share bar; width is set inline. */
 .lb-bar {
     position: absolute;
     top: 0;
@@ -77,8 +72,6 @@ body {
     background: color-mix(in srgb, var(--brand) 32%, transparent);
 }
 
-/* Grouping-sets panel: single left column of all row groups; hovering a right
-   row highlights that section's block of squares. */
 .gs-row {
     transition: background 0.12s ease;
     cursor: default;

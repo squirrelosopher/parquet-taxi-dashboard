@@ -14,8 +14,6 @@ interface MouseState {
     activeLabel?: string;
 }
 
-// Click-and-drag across the plot to rubber-band a time window; release emits
-// [d0, d1]. A plain click resets to the full range.
 export function TripsChart({ data, onWindow }: TripsChartProps) {
     const { toT, toIdx } = useMemo(() => {
         const t = new Map<string, number>();
@@ -55,7 +53,6 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
             return;
         }
         if (!b || a === b) {
-            // plain click → reset to full range
             setCommitted(null);
             onWindow(data[0].t, data[data.length - 1].t);
             return;
@@ -69,7 +66,6 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
         onWindow(toT.get(lo) as number, toT.get(hi) as number);
     };
 
-    // Order the drag endpoints so the mask paints correctly either drag direction.
     const firstLabel = data[0]?.label;
     const lastLabel = data[data.length - 1]?.label;
     let selLo = dragL;
@@ -78,7 +74,6 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
         [selLo, selHi] = [dragR, dragL];
     }
 
-    // The range to keep unmasked: the live drag, else the committed selection.
     const active = selecting ? (selLo && selHi ? [selLo, selHi] : null) : committed;
 
     return (
@@ -115,7 +110,6 @@ export function TripsChart({ data, onWindow }: TripsChartProps) {
                     <Area type="monotone" dataKey="trips" stroke="var(--mantine-color-yellow-6)" strokeWidth={2.5} fill="url(#trips)" isAnimationActive={false} />
                     {active && (
                         <>
-                            {/* Mask everything outside the selection. */}
                             <ReferenceArea x1={firstLabel} x2={active[0]} fill="var(--surface)" fillOpacity={0.68} />
                             <ReferenceArea x1={active[1]} x2={lastLabel} fill="var(--surface)" fillOpacity={0.68} />
                         </>

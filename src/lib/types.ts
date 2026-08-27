@@ -1,5 +1,3 @@
-// A cross-filter selection. Each dimension holds a set of picked values (the
-// leaderboards are multi-select); an absent/empty array means "no filter".
 export interface Filter {
     borough?: string[];
     zone?: string[];
@@ -20,7 +18,7 @@ export interface Totals {
 }
 
 export interface ChartPoint {
-    label: string; // YYYY-MM-DD
+    label: string;
     trips: number;
     t: number;
 }

@@ -12,15 +12,14 @@ const FOOTER_G = 99;
 const CUBE_COLUMN = 150;
 
 interface SectionLine {
-    section: number; // one section's row groups on their own line
+    section: number;
     count: number;
 }
 interface SinglesLine {
-    singles: number[]; // several single-cube sections sharing a line
+    singles: number[];
 }
 type Line = SectionLine | SinglesLine;
 
-// Single-cube sections share a line; a multi-row-group section takes its own line.
 function toLines(sections: Section[]): Line[] {
     const lines: Line[] = [];
     let singles: number[] = [];
@@ -53,14 +52,12 @@ export function GroupingSets({ sections, footerBytes }: GroupingSetsProps) {
             <Box style={{ flex: 'none', width: CUBE_COLUMN }}>
                 <Stack gap={5}>
                     {toLines(sections).map((line, i) => 'singles' in line ? (
-                        // Several sections share this line, so each cube hovers independently.
                         <Group key={i} gap={2} wrap="wrap">
                             {line.singles.map((g) => (
                                 <div key={g} className="gs-square" data-on={hovered === g} onMouseEnter={enter(g)} onMouseLeave={leave} />
                             ))}
                         </Group>
                     ) : (
-                        // One section: hovering anywhere on the line lights all of its cubes.
                         <Group key={i} gap={2} wrap="wrap" onMouseEnter={enter(line.section)} onMouseLeave={leave}>
                             {Array.from({ length: line.count }, (_, j) => (
                                 <div key={j} className="gs-square" data-on={hovered === line.section} />

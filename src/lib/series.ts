@@ -2,9 +2,9 @@ import type { DailyRow } from './cube';
 import type { ChartPoint } from './types';
 import { isoDay } from './format';
 
-const SMOOTH_RADIUS = 3; // ±3 days → a 7-day moving average
+const SMOOTH_RADIUS = 3;
 
-// Smooth out weekday noise so the long-run shape reads clearly.
+// A 7-day moving average, to take the weekday sawtooth out of the line.
 export function toChartPoints(daily: DailyRow[]): ChartPoint[] {
     return daily.map((row, i) => {
         const lo = Math.max(0, i - SMOOTH_RADIUS);

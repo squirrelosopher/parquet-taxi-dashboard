@@ -20,24 +20,23 @@ export function useCube(url: string): { cube: Cube | null; error: string | null 
     return { cube, error };
 }
 
-interface Window {
+interface DateRange {
     d0: number;
     d1: number;
 }
 
-// Fetch the sections answering (filter, window); stale responses are discarded.
-export function useView(cube: Cube | null, filter: Filter, window: Window): { view: ViewResult | null; loading: boolean } {
+export function useView(cube: Cube | null, filter: Filter, range: DateRange): { view: ViewResult | null; loading: boolean } {
     const [view, setView] = useState<ViewResult | null>(null);
     const [loading, setLoading] = useState(false);
     const latest = useRef(0);
 
     useEffect(() => {
-        if (!cube || !window.d1) {
+        if (!cube || !range.d1) {
             return;
         }
         const id = ++latest.current;
         setLoading(true);
-        readView(cube, filter, window.d0, window.d1)
+        readView(cube, filter, range.d0, range.d1)
             .then((v) => {
                 if (id === latest.current) {
                     setView(v);
@@ -48,7 +47,7 @@ export function useView(cube: Cube | null, filter: Filter, window: Window): { vi
                     setLoading(false);
                 }
             });
-    }, [cube, filter, window]);
+    }, [cube, filter, range]);
 
     return { view, loading };
 }

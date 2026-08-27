@@ -33,7 +33,6 @@ export function bytesH(n: number): string {
     return `${Math.round(n)} B`;
 }
 
-// "2021-03" -> "Mar 2021"; ISO date -> "Mar 3, 21"; passthrough otherwise.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function monthLabel(key: string): string {

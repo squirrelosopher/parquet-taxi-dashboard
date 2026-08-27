@@ -13,12 +13,10 @@ interface LeaderboardProps {
 export function Leaderboard({ title, rows, selected, onSelect, limit }: LeaderboardProps) {
     const picked = selected ?? [];
 
-    // Keep a picked row visible even when it falls outside the top `limit`.
     const shown = limit ? rows.slice(0, limit) : rows;
     const extra = rows.filter((r) => picked.includes(r.key) && !shown.includes(r));
     const withSelected = extra.length ? [...shown, ...extra] : shown;
 
-    // Bars fill relative to the leader, so the top row reads as full.
     const max = Math.max(1, ...withSelected.map((r) => r.trips));
     return (
         <div>

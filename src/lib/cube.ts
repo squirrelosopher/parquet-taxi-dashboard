@@ -2,20 +2,13 @@ import { asyncBufferFromUrl, parquetMetadataAsync, parquetReadObjects } from 'hy
 import { compressors } from 'hyparquet-compressors';
 import type { Dimension as Dim, Filter, LeaderRow, Totals } from './types';
 
-// One Parquet file holds every GROUP BY GROUPING SETS section, stacked and sorted
-// by (g, day, borough, zone) so each section is a contiguous, day-ordered byte
-// range fetchable in a single HTTP range request.
-//   g0 totals  g1 by borough  g2 by zone  g3 daily  g4 daily×borough  g5 daily×zone
-
 const COLUMNS = ['g', 'day', 'borough', 'zone', 'trips', 'revenue'];
 const SECTION_COUNT = 6;
-const TOTALS_G = 0; // resident after the head read
-const DAILY_G = 3; // resident after the head read
+const TOTALS_G = 0;
+const DAILY_G = 3;
 const MS_PER_DAY = 86_400_000;
 
-// Dimension bitmask per section (D=1, B=2, Z=4). A section with dims A answers any
-// panel whose dims ⊆ A by folding the extra dimensions away.
-//   g0 {}  g1 {B}  g2 {B,Z}  g3 {D}  g4 {D,B}  g5 {D,B,Z}
+// Dimensions per section as a bitmask: day=1, borough=2, zone=4.
 const SECTION_DIMS = [0, 2, 6, 1, 3, 7];
 const DAY_BIT = 1;
 const hasDay = (g: number): boolean => (SECTION_DIMS[g] & DAY_BIT) !== 0;
@@ -67,7 +60,7 @@ export interface ViewResult {
     boroughLb: LeaderRow[];
     zoneLb: LeaderRow[];
     totals: Totals;
-    sections: number[]; // the distinct grouping sets that answered this view
+    sections: number[];
     bytes: number;
     groupsRead: number;
     rowsScanned: number;
@@ -75,7 +68,7 @@ export interface ViewResult {
     ms: number;
 }
 
-interface Window {
+interface DateRange {
     d0: number;
     d1: number;
 }
@@ -97,8 +90,6 @@ function toMs(v: unknown): number {
     return v == null ? NaN : Number(v);
 }
 
-// Prefetch one contiguous byte span and serve hyparquet's per-column slices from
-// it, so a section read costs a single HTTP range request instead of one per column.
 async function coalescedRead(
     cube: { file: Slicer; meta: Cube['meta'] },
     byteStart: number,
@@ -121,10 +112,8 @@ async function coalescedRead(
     return parquetReadObjects({ file: mem, metadata: cube.meta, compressors, columns, rowStart, rowEnd });
 }
 
-// Range reads address the *selected representation*, so an origin that transcodes
-// the response (gzip/br) silently shifts every offset onto the compressed stream —
-// the footer read then lands on encoding trailer bytes. Diagnose that here rather
-// than letting it surface downstream as a bogus "invalid parquet file".
+// A transcoding origin shifts every range onto the compressed stream, so the
+// footer read lands on encoding trailer bytes rather than the file's own.
 async function probe(url: string): Promise<number> {
     const res = await fetch(url, { method: 'HEAD' });
     if (!res.ok) {
@@ -142,7 +131,6 @@ async function probe(url: string): Promise<number> {
 }
 
 export async function openCube(url: string): Promise<Cube> {
-    // Passing byteLength keeps hyparquet from issuing its own HEAD for the same fact.
     const raw = await asyncBufferFromUrl({ url, byteLength: await probe(url) });
     let read = 0;
     let reqs = 0;
@@ -166,7 +154,7 @@ export async function openCube(url: string): Promise<Cube> {
         const n = Number(rg.num_rows);
         let byteStart = Infinity;
         let byteEnd = 0;
-        let compressed = 0; // total_compressed_size — total_byte_size is uncompressed
+        let compressed = 0;
         for (const c of rg.columns) {
             const m = c.meta_data;
             if (!m) {
@@ -209,10 +197,8 @@ export async function openCube(url: string): Promise<Cube> {
         sections: [],
     };
 
-    // Section boundaries come from the row-group `g` statistics in the footer we
-    // already hold. The cube is sorted by g, so a row group whose g min == max lies
-    // wholly inside one section and needs no read at all; only the handful that
-    // straddle a boundary have their `g` column read to pin the exact row.
+    // Rows are sorted by g, so a row group with g min == max sits inside one
+    // section; only the few that straddle a boundary need reading.
     const total = Number(meta.num_rows);
     const sectionStart = new Array<number>(SECTION_COUNT).fill(-1);
     for (const grp of groups) {
@@ -230,7 +216,6 @@ export async function openCube(url: string): Promise<Cube> {
             }
         });
     }
-    // Right-to-left so a section with no rows collapses to an empty range.
     for (let g = SECTION_COUNT - 1; g >= 0; g--) {
         if (sectionStart[g] === -1) {
             sectionStart[g] = g + 1 < SECTION_COUNT ? sectionStart[g + 1] : total;
@@ -241,7 +226,6 @@ export async function openCube(url: string): Promise<Cube> {
         end: g + 1 < SECTION_COUNT ? sectionStart[g + 1] : total,
     }));
 
-    // The head sections share the first row groups: one read seeds totals + line.
     const headEnd = cube.sectionRows[DAILY_G + 1].start;
     const headCover = groups.filter((g) => g.startRow < headEnd);
     const headRows = await coalescedRead(cube, Math.min(...headCover.map((g) => g.byteStart)), Math.max(...headCover.map((g) => g.byteEnd)), 0, headEnd);
@@ -255,7 +239,6 @@ export async function openCube(url: string): Promise<Cube> {
     }
     cube.daily.sort((a, b) => a.t - b.t);
 
-    // Row-group count and on-disk bytes per section (apportioned at boundaries).
     const stat = (g: number): { rowGroups: number; bytes: number } => {
         const { start, end } = cube.sectionRows[g];
         let rowGroups = 0;
@@ -275,11 +258,6 @@ export async function openCube(url: string): Promise<Cube> {
     return cube;
 }
 
-// ─── Minimal-section routing ────────────────────────────────────────────────
-// Every panel reads the smallest grouping set that can answer it, de-duped so an
-// interaction issues one range request per distinct section.
-
-// The grouping set holding exactly the requested dimensions (needZone ⇒ needBorough).
 function sectionFor(needDay: boolean, needBorough: boolean, needZone: boolean): number {
     const b = needBorough || needZone;
     if (needZone) {
@@ -291,9 +269,8 @@ function sectionFor(needDay: boolean, needBorough: boolean, needZone: boolean): 
     return b ? 1 : 0;
 }
 
-// Zone is excluded from the line on purpose: a single zone's rows are scattered
-// across the day-sorted daily-zone section, so folding a per-zone line would force
-// a full-section scan. Zone stays a leaderboard/KPI filter, keeping reads small.
+// Zone is left out on purpose: one zone's rows are spread across the whole
+// day-sorted section, so a per-zone line would cost a full scan.
 function lineSection(filter: Filter): number {
     return sectionFor(true, has(filter.borough), false);
 }
@@ -314,7 +291,7 @@ function popcount(n: number): number {
     return c;
 }
 
-function inWindow(r: Row, win: Window | null): boolean {
+function inDateRange(r: Row, win: DateRange | null): boolean {
     if (!win) {
         return true;
     }
@@ -322,7 +299,6 @@ function inWindow(r: Row, win: Window | null): boolean {
     return t >= win.d0 && t <= win.d1;
 }
 
-// A leaderboard leaves its own dimension (`skip`) free so its full ranking shows.
 function matches(r: Row, filter: Filter, skip?: Dim): boolean {
     if (skip !== 'borough' && has(filter.borough) && !filter.borough!.includes(r.borough as string)) {
         return false;
@@ -355,10 +331,10 @@ function foldDaily(rows: Row[], filter: Filter): DailyRow[] {
     return Array.from(byDay.values()).sort((a, b) => a.t - b.t);
 }
 
-function foldLeader(rows: Row[], dim: Dim, filter: Filter, win: Window | null): LeaderRow[] {
+function foldLeader(rows: Row[], dim: Dim, filter: Filter, win: DateRange | null): LeaderRow[] {
     const byKey = new Map<string, LeaderRow>();
     for (const r of rows) {
-        if (!inWindow(r, win) || !matches(r, filter, dim)) {
+        if (!inDateRange(r, win) || !matches(r, filter, dim)) {
             continue;
         }
         const key = r[dim] as string;
@@ -373,11 +349,11 @@ function foldLeader(rows: Row[], dim: Dim, filter: Filter, win: Window | null): 
     return Array.from(byKey.values()).sort((a, b) => b.trips - a.trips);
 }
 
-function foldTotals(rows: Row[], filter: Filter, win: Window | null): Totals {
+function foldTotals(rows: Row[], filter: Filter, win: DateRange | null): Totals {
     let t = 0;
     let rev = 0;
     for (const r of rows) {
-        if (!inWindow(r, win) || !matches(r, filter)) {
+        if (!inDateRange(r, win) || !matches(r, filter)) {
             continue;
         }
         t += trips(r);
@@ -386,9 +362,7 @@ function foldTotals(rows: Row[], filter: Filter, win: Window | null): Totals {
     return withAvg(t, rev);
 }
 
-// A day-grained section under a window range-reads only the row groups it overlaps;
-// every other section reads its (small) whole range.
-async function readSection(cube: Cube, g: number, win: Window | null): Promise<{ rows: Row[]; groups: number }> {
+async function readSection(cube: Cube, g: number, win: DateRange | null): Promise<{ rows: Row[]; groups: number }> {
     const { start, end } = cube.sectionRows[g];
     const cover = cube.groups.filter((grp) => {
         const overlaps = grp.endRow > start && grp.startRow < end;
@@ -409,7 +383,7 @@ async function readSection(cube: Cube, g: number, win: Window | null): Promise<{
 
 interface Read {
     g: number;
-    full: boolean; // spans full history rather than the current window
+    full: boolean;
     rows: Row[];
 }
 
@@ -417,14 +391,11 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
     const first = cube.daily[0].t;
     const last = cube.daily[cube.daily.length - 1].t;
     const isFull = d0 <= first && d1 >= last;
-    const win: Window | null = isFull ? null : { d0, d1 };
+    const win: DateRange | null = isFull ? null : { d0, d1 };
 
     const before = { bytes: cube.bytesRead(), reqs: cube.requests() };
     const t0 = performance.now();
 
-    // Each panel resolves to the finest already-planned read that contains its
-    // dimensions, so one fetch answers the coarser panels for free. The resident
-    // head sections (totals, daily) seed the plan at no cost.
     const reads: Read[] = [
         { g: TOTALS_G, full: true, rows: [] },
         { g: DAILY_G, full: true, rows: [] },
@@ -441,7 +412,6 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
         return read;
     };
 
-    // Resolve the full-history line first, then the rest finest-first for reuse.
     const lineRead = resolve(lineSection(filter), true);
     const panels: [Dim | 'kpi', number][] = [
         ['borough', leaderSection('borough', filter, isFull)],
@@ -461,8 +431,7 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
         groupsRead += groups;
     }
 
-    // Only day-grained sources need the window; all-time sections carry no day.
-    const foldWin = (g: number): Window | null => (hasDay(g) && !isFull ? win : null);
+    const foldWin = (g: number): DateRange | null => (hasDay(g) && !isFull ? win : null);
 
     const daily = lineRead.g === DAILY_G ? cube.daily : foldDaily(lineRead.rows, { borough: filter.borough });
     const boroughRead = readOf.get('borough')!;
@@ -489,11 +458,10 @@ export async function readView(cube: Cube, filter: Filter, d0: number, d1: numbe
     };
 }
 
-function totalsFor(cube: Cube, read: Read, filter: Filter, win: Window | null): Totals {
+function totalsFor(cube: Cube, read: Read, filter: Filter, win: DateRange | null): Totals {
     if (read.g === TOTALS_G) {
         return withAvg(cube.totals.trips, cube.totals.revenue);
     }
-    // No filter, sub-window: sum the resident daily series over the window.
     if (read.g === DAILY_G) {
         let trips = 0;
         let revenue = 0;

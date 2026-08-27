@@ -34,7 +34,6 @@ export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; chil
                     fontSize: 10,
                     letterSpacing: 0.4,
                 },
-                // Caps sit high in the line box; nudge down 1px to centre against the icon.
                 label: { overflow: 'visible', lineHeight: 1, display: 'inline-flex', alignItems: 'center', transform: 'translateY(1px)' },
                 section: { marginRight: 7, display: 'inline-flex', alignItems: 'center' },
             }}
@@ -44,10 +43,8 @@ export function Tag({ icon, children, color = 'gray' }: { icon?: ReactNode; chil
     );
 }
 
-// One fixed width for every stat, wide enough for the longest label and the
-// longest value either can reach. Uniform boxes keep the columns on an even
-// pitch, and a changing value never reflows the row. Both lines are centred, so
-// the value sits under the middle of its label however much shorter it is.
+// One width for every stat, so the columns keep an even pitch and a changing
+// value never reflows the row.
 export function MiniStat({ label, value, w = 94 }: { label: string; value: string; w?: number }) {
     return (
         <div style={{ width: w, flex: 'none', textAlign: 'center' }}>
