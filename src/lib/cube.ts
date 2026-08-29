@@ -8,14 +8,7 @@ const TOTALS_G = 0;
 const DAILY_G = 3;
 const MS_PER_DAY = 86_400_000;
 
-// The cube's footer is ~27 KB; 64 KB leaves room to grow without dragging in a
-// chunk of the data. hyparquet issues a second read if it ever overflows.
 const FOOTER_FETCH = 1 << 16;
-
-// Decoding a section costs far more than fetching it, so a section small enough
-// to sit in memory is decoded once and kept. The cap keeps the largest section
-// (daily × zone, 415k rows) out: it is only ever read through a date window,
-// and holding it as objects would cost more than the whole file.
 const CACHEABLE_ROWS = 50_000;
 
 // Dimensions per section as a bitmask: day=1, borough=2, zone=4.
@@ -64,7 +57,7 @@ export interface Cube {
     totals: { trips: number; revenue: number };
     sectionRows: { start: number; end: number }[];
     sections: Section[];
-    decoded: Map<number, Row[]>;
+    decodedSections: Map<number, Row[]>;
 }
 
 export interface ViewResult {
@@ -123,18 +116,12 @@ async function coalescedRead(
     return parquetReadObjects({ file: mem, metadata: cube.meta, compressors, columns, rowStart, rowEnd });
 }
 
-/** Bytes from a range request, placed: where they start, and how long the file is. */
 interface Span {
     bytes: ArrayBuffer;
     start: number;
     byteLength: number;
 }
 
-/**
- * A transcoding origin shifts every range onto the compressed stream, so an offset
- * taken from the footer would address the wrong bytes. That has to be caught here,
- * before any offset is trusted.
- */
 async function fetchRange(url: string, range: string): Promise<Span> {
     const res = await fetch(url, { headers: { Range: range } });
     if (!res.ok) {
@@ -146,28 +133,20 @@ async function fetchRange(url: string, range: string): Promise<Span> {
     }
     const bytes = await res.arrayBuffer();
     if (res.status !== 206) {
-        // Ranges unsupported: the whole file came back, so it starts at zero.
         return { bytes, start: 0, byteLength: bytes.byteLength };
     }
-    const range206 = /bytes (\d+)-\d+\/(\d+)/.exec(res.headers.get('content-range') ?? '');
-    if (!range206) {
+    const contentRange = /bytes (\d+)-\d+\/(\d+)/.exec(res.headers.get('content-range') ?? '');
+    if (!contentRange) {
         throw new Error(`${url} → unusable content-range; cannot plan range reads`);
     }
-    return { bytes, start: Number(range206[1]), byteLength: Number(range206[2]) };
+    return { bytes, start: Number(contentRange[1]), byteLength: Number(contentRange[2]) };
 }
 
-/**
- * The file's length and its footer in one request: Content-Range carries the length,
- * so asking for it separately would cost a round trip and buy nothing.
- */
 async function readTail(url: string, size: number): Promise<Span> {
     const span = await fetchRange(url, `bytes=-${size}`);
     if (span.start + span.bytes.byteLength === span.byteLength) {
         return span;
     }
-    // Vite's preview server reads `bytes=-N` as `bytes=0-N` and returns the head of
-    // the file instead. Ask again by absolute offset, which costs a second round trip
-    // only on origins that get suffix ranges wrong.
     return fetchRange(url, `bytes=${Math.max(0, span.byteLength - size)}-${span.byteLength - 1}`);
 }
 
@@ -189,9 +168,6 @@ export async function openCube(url: string): Promise<Cube> {
         },
     };
 
-    // The footer arrived with the tail, so this parses out of memory. Left at
-    // hyparquet's 512 KB default it would re-fetch 13% of the cube to read a
-    // 27 KB footer.
     const meta = await parquetMetadataAsync(file, { initialFetchSize: FOOTER_FETCH });
     const cols = meta.row_groups[0].columns.map((c) => c.meta_data?.path_in_schema.join('.'));
     const dayCol = cols.indexOf('day');
@@ -244,22 +220,15 @@ export async function openCube(url: string): Promise<Cube> {
         totals: { trips: 0, revenue: 0 },
         sectionRows: [],
         sections: [],
-        decoded: new Map(),
+        decodedSections: new Map(),
     };
 
-    // Two things have to come off the wire before anything can be drawn: the exact
-    // row each section starts on, and the overview sections themselves. Neither
-    // depends on the other — a row group straddling a boundary is named by its own
-    // g statistics, a row group holding g0…g3 by its gMin — so both sets fall out
-    // of the footer and go out in one parallel batch instead of a chain.
     const straddlers = groups.filter((grp) => grp.gMin !== grp.gMax);
     const headGroups = groups.filter((grp) => grp.gMin <= DAILY_G);
     const inHead = new Set(headGroups);
     const headEnd = headGroups.length ? headGroups[headGroups.length - 1].endRow : 0;
     const rowsByGroup = new Map(
         await Promise.all(
-            // A straddler that also holds head rows is read once, with every column:
-            // the byte span is the same either way, only the decode differs.
             [...new Set([...straddlers, ...headGroups])].map(async (grp): Promise<[Group, Row[]]> => [
                 grp,
                 await coalescedRead(cube, grp.byteStart, grp.byteEnd, grp.startRow, grp.endRow, inHead.has(grp) ? COLUMNS : ['g']),
@@ -268,7 +237,7 @@ export async function openCube(url: string): Promise<Cube> {
     );
 
     // Rows are sorted by g, so a row group with g min == max sits inside one
-    // section; only the few that straddle a boundary carry a split row.
+    // section; only the few that straddle a boundary need reading.
     const total = Number(meta.num_rows);
     const sectionStart = new Array<number>(SECTION_COUNT).fill(-1);
     for (const grp of groups) {
@@ -306,13 +275,9 @@ export async function openCube(url: string): Promise<Cube> {
     }
     cube.daily.sort((a, b) => a.t - b.t);
 
-    // The head span also carried every section that ends inside it — by borough
-    // and by zone — decoded already. Keeping them saves the first interaction a
-    // request for bytes that are sitting right here.
     for (let g = 0; g < SECTION_COUNT; g++) {
-        // Totals and the daily line already have their own fields above.
         if (g !== TOTALS_G && g !== DAILY_G && cube.sectionRows[g].end <= headEnd) {
-            cube.decoded.set(g, headRows.filter((r) => Number(r.g) === g));
+            cube.decodedSections.set(g, headRows.filter((r) => Number(r.g) === g));
         }
     }
 
@@ -444,23 +409,19 @@ function foldTotals(rows: Row[], filter: Filter, win: DateRange | null): Totals 
 }
 
 async function readSection(cube: Cube, g: number, win: DateRange | null): Promise<{ rows: Row[]; groups: number }> {
-    const held = cube.decoded.get(g);
+    const held = cube.decodedSections.get(g);
     if (held) {
-        // Held rows span the whole section; the folds narrow to the window.
         return { rows: held, groups: 0 };
     }
     const { start, end } = cube.sectionRows[g];
-    // A section that will be kept is read whole even for a windowed view: the
-    // extra row groups cost one decode now against a decode on every later
-    // interaction. The big section stays windowed.
-    const keep = end - start <= CACHEABLE_ROWS;
-    const clip = keep ? null : win;
+    const cacheable = end - start <= CACHEABLE_ROWS;
+    const pruneWindow = cacheable ? null : win;
     const cover = cube.groups.filter((grp) => {
         const overlaps = grp.endRow > start && grp.startRow < end;
         if (!overlaps) {
             return false;
         }
-        return !(hasDay(g) && clip) || (grp.dayMax >= clip.d0 && grp.dayMin <= clip.d1);
+        return !(hasDay(g) && pruneWindow) || (grp.dayMax >= pruneWindow.d0 && grp.dayMin <= pruneWindow.d1);
     });
     if (!cover.length) {
         return { rows: [], groups: 0 };
@@ -469,8 +430,8 @@ async function readSection(cube: Cube, g: number, win: DateRange | null): Promis
     const rowEnd = Math.min(end, cover[cover.length - 1].endRow);
     const rows = (await coalescedRead(cube, Math.min(...cover.map((x) => x.byteStart)), Math.max(...cover.map((x) => x.byteEnd)), rowStart, rowEnd))
         .filter((r) => Number(r.g) === g);
-    if (keep) {
-        cube.decoded.set(g, rows);
+    if (cacheable) {
+        cube.decodedSections.set(g, rows);
     }
     return { rows, groups: cover.length };
 }
