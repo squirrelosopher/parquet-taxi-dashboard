@@ -123,18 +123,19 @@ async function coalescedRead(
     return parquetReadObjects({ file: mem, metadata: cube.meta, compressors, columns, rowStart, rowEnd });
 }
 
-interface Tail {
-    byteLength: number;
-    start: number;
+/** Bytes from a range request, placed: where they start, and how long the file is. */
+interface Span {
     bytes: ArrayBuffer;
+    start: number;
+    byteLength: number;
 }
 
-// One suffix range brings back the file length (from Content-Range) and the
-// footer together; a HEAD first would only buy the length, at a full round
-// trip. A transcoding origin shifts every range onto the compressed stream, so
-// the footer read would land on encoding trailer bytes rather than the file's
-// own — that has to be caught here, before any offset is trusted.
-async function rangeGet(url: string, range: string): Promise<{ res: Response; bytes: ArrayBuffer }> {
+/**
+ * A transcoding origin shifts every range onto the compressed stream, so an offset
+ * taken from the footer would address the wrong bytes. That has to be caught here,
+ * before any offset is trusted.
+ */
+async function fetchRange(url: string, range: string): Promise<Span> {
     const res = await fetch(url, { headers: { Range: range } });
     if (!res.ok) {
         throw new Error(`${url} → HTTP ${res.status} ${res.statusText}`);
@@ -143,27 +144,31 @@ async function rangeGet(url: string, range: string): Promise<{ res: Response; by
     if (encoding) {
         throw new Error(`origin re-encoded the cube (content-encoding: ${encoding}); range reads need it served verbatim`);
     }
-    return { res, bytes: await res.arrayBuffer() };
+    const bytes = await res.arrayBuffer();
+    if (res.status !== 206) {
+        // Ranges unsupported: the whole file came back, so it starts at zero.
+        return { bytes, start: 0, byteLength: bytes.byteLength };
+    }
+    const range206 = /bytes (\d+)-\d+\/(\d+)/.exec(res.headers.get('content-range') ?? '');
+    if (!range206) {
+        throw new Error(`${url} → unusable content-range; cannot plan range reads`);
+    }
+    return { bytes, start: Number(range206[1]), byteLength: Number(range206[2]) };
 }
 
-async function readTail(url: string, size: number): Promise<Tail> {
-    let { res, bytes } = await rangeGet(url, `bytes=-${size}`);
-    if (res.status !== 206) {
-        // No range support at all: the whole file came back, so it is the tail.
-        return { byteLength: bytes.byteLength, start: 0, bytes };
+/**
+ * The file's length and its footer in one request: Content-Range carries the length,
+ * so asking for it separately would cost a round trip and buy nothing.
+ */
+async function readTail(url: string, size: number): Promise<Span> {
+    const span = await fetchRange(url, `bytes=-${size}`);
+    if (span.start + span.bytes.byteLength === span.byteLength) {
+        return span;
     }
-    const span = /bytes (\d+)-(\d+)\/(\d+)/.exec(res.headers.get('content-range') ?? '');
-    if (!span) {
-        throw new Error(`${url} → no content-range total; cannot plan range reads`);
-    }
-    const byteLength = Number(span[3]);
-    // Vite's own preview server reads `bytes=-N` as `bytes=0-N` and hands back
-    // the head of the file. Anything but the true tail is retried by absolute
-    // offset, which costs a round trip only on origins that get this wrong.
-    if (Number(span[2]) !== byteLength - 1) {
-        ({ bytes } = await rangeGet(url, `bytes=${Math.max(0, byteLength - size)}-${byteLength - 1}`));
-    }
-    return { byteLength, start: byteLength - bytes.byteLength, bytes };
+    // Vite's preview server reads `bytes=-N` as `bytes=0-N` and returns the head of
+    // the file instead. Ask again by absolute offset, which costs a second round trip
+    // only on origins that get suffix ranges wrong.
+    return fetchRange(url, `bytes=${Math.max(0, span.byteLength - size)}-${span.byteLength - 1}`);
 }
 
 export async function openCube(url: string): Promise<Cube> {
@@ -242,23 +247,22 @@ export async function openCube(url: string): Promise<Cube> {
         decoded: new Map(),
     };
 
-    // Two things have to come off the wire before anything can be drawn: the
-    // exact row each section starts on, and the overview sections themselves.
-    // Neither depends on the other — a row group that straddles a boundary is
-    // named by its own g statistics, and a row group holding g0…g3 by gMin — so
-    // both sets are known from the footer and read in one parallel batch rather
-    // than a chain of round trips.
-    const straddlers = groups.filter((g) => g.gMin !== g.gMax);
-    const headCover = groups.filter((g) => g.gMin <= DAILY_G);
-    const headEnd = headCover.length ? headCover[headCover.length - 1].endRow : 0;
-    const upfront = Array.from(new Set([...straddlers, ...headCover]));
-    const batch = new Map(
+    // Two things have to come off the wire before anything can be drawn: the exact
+    // row each section starts on, and the overview sections themselves. Neither
+    // depends on the other — a row group straddling a boundary is named by its own
+    // g statistics, a row group holding g0…g3 by its gMin — so both sets fall out
+    // of the footer and go out in one parallel batch instead of a chain.
+    const straddlers = groups.filter((grp) => grp.gMin !== grp.gMax);
+    const headGroups = groups.filter((grp) => grp.gMin <= DAILY_G);
+    const inHead = new Set(headGroups);
+    const headEnd = headGroups.length ? headGroups[headGroups.length - 1].endRow : 0;
+    const rowsByGroup = new Map(
         await Promise.all(
-            // A straddler inside the head span is read whole rather than twice:
+            // A straddler that also holds head rows is read once, with every column:
             // the byte span is the same either way, only the decode differs.
-            upfront.map(async (grp): Promise<[Group, Row[]]> => [
+            [...new Set([...straddlers, ...headGroups])].map(async (grp): Promise<[Group, Row[]]> => [
                 grp,
-                await coalescedRead(cube, grp.byteStart, grp.byteEnd, grp.startRow, grp.endRow, headCover.includes(grp) ? COLUMNS : ['g']),
+                await coalescedRead(cube, grp.byteStart, grp.byteEnd, grp.startRow, grp.endRow, inHead.has(grp) ? COLUMNS : ['g']),
             ]),
         ),
     );
@@ -274,7 +278,7 @@ export async function openCube(url: string): Promise<Cube> {
             }
             continue;
         }
-        batch.get(grp)!.forEach((r, i) => {
+        rowsByGroup.get(grp)!.forEach((r, i) => {
             const g = Number(r.g);
             if (sectionStart[g] === -1) {
                 sectionStart[g] = grp.startRow + i;
@@ -291,7 +295,7 @@ export async function openCube(url: string): Promise<Cube> {
         end: g + 1 < SECTION_COUNT ? sectionStart[g + 1] : total,
     }));
 
-    const headRows = headCover.flatMap((grp) => batch.get(grp)!);
+    const headRows = headGroups.flatMap((grp) => rowsByGroup.get(grp)!);
     for (const r of headRows) {
         const g = Number(r.g);
         if (g === TOTALS_G) {
