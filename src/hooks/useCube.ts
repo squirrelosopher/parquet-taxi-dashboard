@@ -25,9 +25,10 @@ interface DateRange {
     d1: number;
 }
 
-export function useView(cube: Cube | null, filter: Filter, range: DateRange): { view: ViewResult | null; loading: boolean } {
+export function useView(cube: Cube | null, filter: Filter, range: DateRange): { view: ViewResult | null; loading: boolean; failed: boolean } {
     const [view, setView] = useState<ViewResult | null>(null);
     const [loading, setLoading] = useState(false);
+    const [failed, setFailed] = useState(false);
     const latest = useRef(0);
 
     useEffect(() => {
@@ -40,6 +41,13 @@ export function useView(cube: Cube | null, filter: Filter, range: DateRange): { 
             .then((v) => {
                 if (id === latest.current) {
                     setView(v);
+                    setFailed(false);
+                }
+            })
+            .catch(() => {
+                // The numbers on screen answer the previous question, not this one.
+                if (id === latest.current) {
+                    setFailed(true);
                 }
             })
             .finally(() => {
@@ -49,5 +57,5 @@ export function useView(cube: Cube | null, filter: Filter, range: DateRange): { 
             });
     }, [cube, filter, range]);
 
-    return { view, loading };
+    return { view, loading, failed };
 }

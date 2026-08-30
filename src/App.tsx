@@ -27,7 +27,7 @@ export function App() {
 
     useEffect(() => setRange(fullRange), [fullRange]);
 
-    const { view, loading } = useView(cube, filter, range);
+    const { view, loading, failed } = useView(cube, filter, range);
     const chartData = useMemo(() => toChartPoints(view?.daily ?? []), [view]);
 
     const toggle = (dim: Dimension, value: string) =>
@@ -62,7 +62,7 @@ export function App() {
                 <Hero sizeMb={(cube.totalBytes / 1e6).toFixed(1)} sectionCount={cube.sections.length} rowGroupCount={cube.groups.length} />
 
                 <Stack className="alt-font" gap={28}>
-                    <ChartPanel data={chartData} loading={loading} view={view} onWindow={(d0, d1) => setRange({ d0, d1 })} />
+                    <ChartPanel data={chartData} loading={loading} failed={failed} view={view} onWindow={(d0, d1) => setRange({ d0, d1 })} />
                     <Kpis totals={totals} />
                     <Leaderboards borough={view?.boroughLb ?? []} zone={view?.zoneLb ?? []} filter={filter} onToggle={toggle} />
                     <CubeSection sections={cube.sections} groupCount={cube.groups.length} footerBytes={cube.footerBytes} />

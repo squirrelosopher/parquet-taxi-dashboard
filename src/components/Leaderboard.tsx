@@ -14,7 +14,12 @@ export function Leaderboard({ title, rows, selected, onSelect, limit }: Leaderbo
     const picked = selected ?? [];
 
     const shown = limit ? rows.slice(0, limit) : rows;
-    const extra = rows.filter((r) => picked.includes(r.key) && !shown.includes(r));
+    const visible = new Set(shown.map((r) => r.key));
+    // A pick the other dimension rules out has no row of its own. It is still filtering,
+    // so it is listed at zero rather than left on with nothing to switch it off.
+    const extra = picked
+        .filter((key) => !visible.has(key))
+        .map((key) => rows.find((r) => r.key === key) ?? { key, trips: 0, revenue: 0 });
     const withSelected = extra.length ? [...shown, ...extra] : shown;
 
     const max = Math.max(1, ...withSelected.map((r) => r.trips));
